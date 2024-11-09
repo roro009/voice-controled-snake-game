@@ -1,0 +1,15 @@
+os
+sounddevice==0.4.4
+time
+collections
+numpy==1.23.5
+nemo
+torchmetrics==0.7.0
+wave
+tempfile
+pytorch_lightning
+multiprocessing
+ctypes
+pygame==2.1.2
+voice_control
+random
