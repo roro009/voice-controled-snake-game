@@ -1,0 +1,9 @@
+from nemo.collections.asr.models import ASRModel
+
+asr_model = ASRModel.from_pretrained(model_name="stt_en_conformer_ctc_large")
+
+def transcribe_with_nemo(audio_path):
+    try:
+        return asr_model.transcribe([audio_path])[0].lower()
+    except Exception:
+        return None
