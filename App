@@ -1,0 +1,70 @@
+import streamlit as st
+import sounddevice as sd
+import numpy as np
+import tempfile
+import wave
+import os
+import time
+from utils.asr_google import transcribe_with_google
+from utils.asr_nemo import transcribe_with_nemo
+from difflib import SequenceMatcher
+import subprocess
+
+SAMPLE_RATE = 16000
+DURATION = 2
+COMMANDS = ["up", "down", "left", "right"]
+SIMILARITY_THRESHOLD = 0.7
+
+def get_most_similar_command(text):
+    best_match, best_score = None, 0
+    for cmd in COMMANDS:
+        score = SequenceMatcher(None, text, cmd).ratio()
+        if score > best_score:
+            best_match = cmd
+            best_score = score
+    return best_match, best_score
+
+def record_audio():
+    audio = sd.rec(int(DURATION * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=1, dtype='float32')
+    sd.wait()
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        path = tmp.name
+        with wave.open(path, 'wb') as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(SAMPLE_RATE)
+            wf.writeframes((audio * 32767).astype(np.int16).tobytes())
+    return path
+
+st.set_page_config(page_title="Voice Controlled Snake", layout="centered")
+st.title("🐍🎙️ Voice Controlled Snake Game")
+
+if st.button("🚀 Start Game"):
+    st.info("Launching the Snake game...")
+    subprocess.Popen(["python", "snake_game.py"])
+
+st.markdown("---")
+st.subheader("🧪 Voice Command Recognition")
+
+if st.button("🎤 Record Voice Command"):
+    with st.spinner("Recording and Transcribing..."):
+        audio_path = record_audio()
+
+        text = transcribe_with_google(audio_path)
+        if not text:
+            st.warning("Google ASR failed. Falling back to NeMo...")
+            text = transcribe_with_nemo(audio_path)
+
+        os.remove(audio_path)
+
+        if text:
+            match, score = get_most_similar_command(text)
+            if score >= SIMILARITY_THRESHOLD:
+                st.success(f"Command Recognized: '{match}' (Score: {score:.2f})")
+            else:
+                st.error("No valid command recognized. Try again.")
+        else:
+            st.error("Both ASR engines failed.")
+
+st.markdown("---")
+st.markdown("This app uses a hybrid ASR setup: **Google Speech Recognition** (primary) and **NVIDIA NeMo** (fallback). Click 'Start Game' to launch the snake game window, and 'Record Voice Command' to test your command.")
